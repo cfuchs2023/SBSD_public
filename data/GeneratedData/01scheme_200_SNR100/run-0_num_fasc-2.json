@@ -1,0 +1,16 @@
+{
+    "task_name": "01scheme_200_SNR100",
+    "M0_random": false,
+    "dir1_type": "random",
+    "crossangle_min": 25,
+    "num_samples": 1000,
+    "num_coils": 1,
+    "num_fasc": 2,
+    "type": "standard",
+    "run_id": 0,
+    "SNR_dist": "uniform",
+    "SNR_min": 100,
+    "SNR_max": 100,
+    "nu_min": 0.15,
+    "random_seed": null
+}

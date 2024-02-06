@@ -1,0 +1,39 @@
+{
+  "task_name": "01scheme_100_SNR100",
+  "dic_path": "E:/github/SBSD_public/MC_simus\\MC_simus.pkl",
+  "scheme_name": "01scheme_100",
+  "base_data_path": "01scheme_100",
+  "L": 8,
+  "bval": 3000000000.0000005,
+  "c_smooth": 0.0001,
+  "t_smooth": 1e-06,
+  "DNs_metadata": {
+    "Ns": [
+      6
+    ],
+    "dangle": 0.02,
+    "nangles": 100,
+    "base_cache_path": "E:/github/SBSD_public/CachedRotationDictionary"
+  },
+  "results": {
+    "Degree6": {
+      "mean_ang_error": [
+        4.177356758141716,
+        3.9096065294526348
+      ],
+      "median_ang_error": [
+        2.2158125450542236,
+        1.525164431938311
+      ],
+      "prop_below_5": [
+        0.89,
+        0.87
+      ],
+      "prop_below_10": [
+        0.94,
+        0.93
+      ],
+      "both_median_ang_error": 1.9129817585212574
+    }
+  }
+}
