@@ -7,6 +7,12 @@ from tqdm import tqdm
 import math
 import pickle
 
+from dipy.core.gradients import gradient_table, unique_bvals_tolerance
+from dipy.data import get_sphere
+from dipy.direction import peaks_from_model
+import dipy.reconst.dti as dti
+from dipy.reconst.csdeconv import ConstrainedSphericalDeconvModel
+
 path_SBSD = "E:/github/SBSD_public/" #Put the path where you git cloned SBSD_public
 if(not(path_SBSD in sys.path)):
     sys.path.insert(0,path_SBSD)     
@@ -14,11 +20,7 @@ if(not(path_SBSD in sys.path)):
 from core import sh_utils as shu
 from core import DataGenerator as DG
 
-from dipy.core.gradients import gradient_table, unique_bvals_tolerance
-from dipy.data import get_sphere
-from dipy.direction import peaks_from_model
-import dipy.reconst.dti as dti
-from dipy.reconst.csdeconv import ConstrainedSphericalDeconvModel
+
 
 #%% Load data
 base_data_path = os.path.join(path_SBSD, 'data')

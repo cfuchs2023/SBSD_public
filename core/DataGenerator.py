@@ -6,7 +6,6 @@ import os
 from tqdm import tqdm
 import spherical as sph
 import quaternionic as qua
-import matplotlib.pyplot as plt
 from core import DWI_utils as dwu
 from core import sh_utils as shu
 

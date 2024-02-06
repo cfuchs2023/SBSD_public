@@ -9,6 +9,7 @@ import spherical as sph
 import quaternionic as qua
 import json
 
+
 path_SBSD = "E:/github/SBSD_public/" #Put the path where you git cloned SBSD_public
 if(not(path_SBSD in sys.path)):
     sys.path.insert(0,path_SBSD)   

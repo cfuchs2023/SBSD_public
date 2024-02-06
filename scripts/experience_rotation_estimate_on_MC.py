@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import sys
-import matplotlib.pyplot as plt
 import os
 import numpy as np
 import math
 import pickle
-
+import spherical as sph
+import quaternionic as qua
+import json
 path_SBSD = "E:/github/SBSD_public/" #Put the path where you git cloned SBSD_public
 if(not(path_SBSD in sys.path)):
     sys.path.insert(0,path_SBSD)   
@@ -13,10 +14,9 @@ if(not(path_SBSD in sys.path)):
 
 from core import sh_utils as shu
 from core import DataGenerator as DG
-import spherical as sph
-import quaternionic as qua
+
 from core import SBSD as sbsd
-import json
+
 
 #%% Parameters
 #Where the reports and results will be stored

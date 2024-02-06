@@ -24,8 +24,7 @@ def complexOMP(D, s, N = 2,
     Ak = [] #set of selected atoms
     Ck = [] #values of the maximum correlation at each iteration
     Wk = None #Weights computed at each iteration : will be redefined at each iteration
-    mask = np.array([True for i in range(num_atoms)]) #Mask of atoms not yet selected
-    # This is used to easily keep track of the indexes of selected atoms
+    mask = np.array([True for i in range(num_atoms)]) #Mask of atoms not yet selected ;  This is used to easily keep track of the indexes of selected atoms
     idx_in_full_dic = np.array([k for k in range(num_atoms)]) #This is used to get the actual idx of the selected atom in the initial (full) dictionary
 
     stop_criterion = False

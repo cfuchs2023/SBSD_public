@@ -1,78 +1,10 @@
 # -*- coding: utf-8 -*-
 #%% Load module
 import numpy as np
-import scipy
 from tqdm import tqdm
 import quaternionic as qua    
 import spherical as sph
 import matplotlib.pyplot as plt
-
-#%%
-# Code by cs01on posted on stackoverflow #7008608
-# https://stackoverflow.com/questions/7008608/scipy-io-loadmat-nested-structures-i-e-dictionaries
-# Handles Matlab structures which may themselves includes cell array of objects
-def loadmat(filename):
-    '''
-    This function should be called instead of scipy.io.loadmat
-    as it solves the problem of not properly recovering Python dictionaries
-    from mat files. It calls the function check keys to cure all entries
-    which are still mat-objects
-    '''
-    def _check_keys(d):
-        '''
-        checks if entries in dictionary are mat-objects. If yes
-        todict is called to change them to nested dictionaries
-        '''
-        for key in d:
-            if isinstance(d[key], scipy.io.matlab.mio5_params.mat_struct):
-                d[key] = _todict(d[key])
-            elif (str(d[key].__class__) ==
-                  "<class 'scipy.io.matlab.mio5_params.mat_struct'>"):
-                # ugly hack for Spyder 3.3.2 conda 4.5.12 on CentOS 7
-                d[key] = _todict(d[key])
-        return d
-
-    def _todict(matobj):
-        '''
-        A recursive function which constructs from matobjects nested
-        dictionaries
-        '''
-        d = {}
-        for strg in matobj.__dict__.keys():  # vs in matobj._fieldnames:
-            elem = matobj.__dict__[strg]
-            if isinstance(elem, scipy.io.matlab.mio5_params.mat_struct):
-                d[strg] = _todict(elem)
-            elif (str(elem.__class__) ==
-                  "<class 'scipy.io.matlab.mio5_params.mat_struct'>"):
-                # ugly hack for Spyder 3.3.2 conda 4.5.12 on CentOS 7
-                d[strg] = _todict(elem)
-            # elif isinstance(elem, np.ndarray):
-            #    d[strg] = _tolist(elem)  # GR: not sure why that's useful?
-            else:
-                d[strg] = elem
-        return d
-
-    def _tolist(ndarray):
-        '''
-        A recursive function which constructs lists from cellarrays
-        (which are loaded as NumPy ndarrays), recursing into the elements
-        if they contain matobjects.
-        '''
-        elem_list = []
-        for sub_elem in ndarray:
-            if isinstance(sub_elem, scipy.io.matlab.mio5_params.mat_struct):
-                elem_list.append(_todict(sub_elem))
-            elif (str(sub_elem.__class__) ==
-                  "<class 'scipy.io.matlab.mio5_params.mat_struct'>"):
-                # ugly hack for Spyder 3.3.2 conda 4.5.12 on CentOS 7
-                elem_list.append(_todict(sub_elem))
-            elif isinstance(sub_elem, np.ndarray):
-                elem_list.append(_tolist(sub_elem))
-            else:
-                elem_list.append(sub_elem)
-        return elem_list
-    data = scipy.io.loadmat(filename, struct_as_record=False, squeeze_me=True)
-    return _check_keys(data)
 
 
 #%%
@@ -96,36 +28,6 @@ def Cart2Sph(x,y,z):
     phis = np.arctan2(y/r,x/r)
     
     return thetas, phis, r
-
-def legacy_Cart2Sph(x,y,z):
-    '''
-    Theta is the longitude
-    Phi is the colatitude
-    (scipy convention)
-    '''
-    thetas = np.zeros(x.shape[0])
-    phis = np.zeros(x.shape[0])
-    
-    xysq = x**2 + y**2
-    
-    phis[:] = -np.arctan2(z, np.sqrt(xysq)) + np.pi/2
-    thetas[:] = np.arctan2(y,x)
-    
-    return thetas, phis
-    
-
-def legacy_Sph2Cart(thetas,phis, r):
-    ''' thetas is a vector storing values in the following order : 
-        theta0,theta1,...,thetan, theta0, theta1, ... thetan.....
-        phis is a vector storing values in the following order
-        phi0,phi0,phi0,phi0,,....,phim,phim,phim,phim
-        SCIPY convention
-        '''
-    xyz = np.zeros((thetas.shape[0],3))
-    xyz[:,0] = r * np.cos(thetas) * np.sin(phis)
-    xyz[:,1] = r * np.sin(thetas) * np.sin(phis)
-    xyz[:,2] = r * np.cos(phis)
-    return xyz
 
 def Sph2Cart(thetas,phis, r):
     ''' thetas is a vector storing values in the following order : 
@@ -237,22 +139,6 @@ def MakeRotFilter(l_max, rots):
     
     return rotation_filters
 
-def legacy_MakeSingleOrderRotFilter(l, rots):
-    #This filter can perform rotation of axisymmetric (AROUND u_z) signal
-    #It does not work if the signal is not axisymmetric around u_z
-    #rots is a quaternionic array
-    #Legacy function using the convention of the sifting convolution
-    wigner = sph.Wigner(l)
-    n_rots = rots.shape[0]
-    rot_filter_coeff = np.sqrt(4*np.pi/(2*l+1))
-    
-    rotation_filters = np.zeros((n_rots, 2*l+1), dtype = 'complex')
-    Id = np.eye((l+1)**2, dtype = 'complex')
-    for m in range(-l,l+1):
-        lm_idx = wigner.Yindex(l,m)
-        rotation_filters[:,m+l] = rot_filter_coeff * wigner.evaluate(sph.Modes(Id[:,lm_idx],0),rots.conjugate())
-    
-    return rotation_filters
 
 def MakeSingleOrderRotFilter(l, rots):
     #This filter can perform rotation of axisymmetric (AROUND u_z) signal
@@ -289,28 +175,6 @@ def RotateAxisymSignal(SH_x, rot):
     return SH_rot_x
 
 #%%
-def __legacy_compute_rotation_grid(nalpha,dr):
-    lin_alpha = np.linspace(0,np.pi,nalpha, endpoint = False)
-
-    li_beta = []
-    for k in range(nalpha):
-        alpha = lin_alpha[k]
-        perimeter = np.sin(alpha)**2 
-        num_betas = int(perimeter/dr)+1
-        li_beta.append(np.linspace(0,np.pi,num_betas, endpoint = False))
-
-    number_of_betas = [x.shape[0] for x in li_beta]
-
-    alpha = np.repeat(lin_alpha, number_of_betas)
-    beta = np.zeros([alpha.shape[0]])
-    start = 0
-    for k in range(nalpha):
-        end = start + li_beta[k].shape[0]
-        beta[start:end] = li_beta[k][:]
-        start = end
-    
-    return alpha,beta
-
 def __compute_rotation_grid(ntheta,dangle):
     
     #First we sample the hemi-sphere ; we will convert to rotations later on
