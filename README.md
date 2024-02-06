@@ -19,5 +19,13 @@ Once data has been generated with a sufficient number of samples, you can use th
 Once you have downloaded the hcp data from the young adult diffusion dataset (https://www.humanconnectome.org/study/hcp-young-adult), you can use the scripts run_SBSD_on_invivo_parallelized.py and run_SH_est_on_invivo_parallelized.py in order to respectively obtain a fiber bundles orientation estimation and SHs expansion estimation. 
 In both cases, the code was paralellized using dask (https://www.dask.org/). Therefore, the scheduler and number of processes may need to be adapted to your hardware.
 
+# Requirements
+spherical : https://pypi.org/project/spherical/
+quaternionic : https://pypi.org/project/quaternionic/
+dask : https://docs.dask.org/en/stable/
+dipy : https://dipy.org/
+nibabel : https://nipy.org/nibabel/
+tqdm : https://tqdm.github.io
+
 
 
