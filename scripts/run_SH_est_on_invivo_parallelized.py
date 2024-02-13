@@ -26,7 +26,7 @@ if(__name__ == '__main__'):
                   'dataHCP',
                   ]) #Put the path where you stored data from the hcp
     cache_path = os.path.join(path_SBSD, "CachedRotationDictionary")
-    patient_id = "1007"
+    patient_id = "1019"
     
     
     num_processes = 40
@@ -37,7 +37,7 @@ if(__name__ == '__main__'):
         idx_degree = 1
         run_id = 'SBSD_00'
     else:
-        run_id = 'MSMT_00'
+        run_id = 'MSMT_new_00'
         
     #%% Build paths
     base_patient_path = os.path.join(base_hcp_path, *['MGH_{0}_all'.format(patient_id),
@@ -48,9 +48,6 @@ if(__name__ == '__main__'):
     #%% Parameters
     L = 8 #Degree for the computation of the expansion
     c_smooth = 1e-4 #For Laplace Beltrami regularization in the computation of the projection matrix
-    # ns = np.array([2*n for n in range(L//2 + 1)])
-    # t_smooth = 1e-5 * (ns*(ns+1))**2  #For tikhonov regularization is LS solving in OMP
-    # t_smooth[0] = 1e-5
     t_smooth = np.array([1e-6, 1e-5, 1e-4, 1e-3, 5e-3])
     t_smooth = t_smooth.tolist()
     bval = 5000
@@ -58,7 +55,8 @@ if(__name__ == '__main__'):
     
     # Slice on which the algortihm will be performed : None everyhwere -> perform on the complete volume (masked by a brain mask)
     slc = [slice(None),slice(None),slice(None)]  # Create a list of slices for each dimension
-    #slc = [slice(None),slice(None),slice(0,20)]
+    #slc = [slice(None),slice(None),slice(20,40)] #Reduced volume for testing
+    
     #Slice for vizualisation
     visu_slc = [slice(None),slice(80,81),  slice(None)]  # Create a list of slices for each dimension
     visu_slc_diff = visu_slc + [slice(0,1)] #Visualization of first diff volume
@@ -100,38 +98,7 @@ if(__name__ == '__main__'):
     mask_shells = np.zeros((ubvals.shape[0], bvals.shape[0]), dtype = 'bool')
     for k,bvalue in enumerate(ubvals):
         mask_shells[k,:] = np.abs(bvals-bvalue)<70
-    
-    #%%
-    x = 75 #60
-    y = 80
-    z = 51 #88
-
-    img_b0 = img[:,:,:,~mask_noB0]
-    img_visu = np.flip(img_b0, axis = 1)
-    img_visu = np.flip(img_visu, axis = 0)
-    
-    
-    sig = img_visu[x,y,z,:]
-    
-    plt.figure()
-    plt.plot(sig)
-    plt.show()
-
-    plt.figure()
-    mp = plt.imshow(np.any(img_visu[:,:,z,:]<0, axis = -1), cmap = 'binary', origin = 'lower')
-    plt.scatter(0,0, color = 'k')
-    plt.scatter(y,x, color = 'r')
-    plt.colorbar(mp)
-    plt.show()
-    
-    norms = np.mean(img_visu[:,:,z,], axis = -1)
-    
-    plt.figure()
-    mp = plt.imshow(norms, cmap = 'Reds', origin = 'lower')
-    plt.scatter(0,0, color = 'k')
-    plt.scatter(y,x, color = 'r')
-    plt.colorbar(mp)
-    plt.show()
+        
     #%%
     img_to_store = img.copy()
     data_linear = img[mask,:]
@@ -207,14 +174,14 @@ if(__name__ == '__main__'):
         print('Loading diffusion data... Done!')
     elif(dir_est_type == 'MSMTCSD'):
         print('Loading MSMT CSD fod peaks...')
-        csd_peaks_path = os.path.join(base_patient_path, *['diff','preproc','mri','mrtrix_fod_peaks.nii.gz'])
+        msmt_peaks_path = os.path.join(base_patient_path, *['diff','preproc','mri','mrtrix_msmt_fod_peaks.nii.gz'])
         # Load nifti
-        csd_peaks_nifti = nib.load(csd_peaks_path)
+        msmt_peaks_nifti = nib.load(msmt_peaks_path)
 
         # Get data
-        csd_peaks_raw = csd_peaks_nifti.get_fdata(dtype = np.float32)
-        num_peaks = csd_peaks_raw.shape[-1]//3
-        dir_est = csd_peaks_raw.reshape(*csd_peaks_raw.shape[0:3], num_peaks,3) #Last axis are the coordinates ; second to last is the peak index, so 3 peaks were computed
+        msmt_peaks_raw = msmt_peaks_nifti.get_fdata(dtype = np.float32)
+        num_peaks = msmt_peaks_raw.shape[-1]//3
+        dir_est = msmt_peaks_raw.reshape(*msmt_peaks_raw.shape[0:3], num_peaks,3) #Last axis are the coordinates ; second to last is the peak index, so 3 peaks were computed
         norms_dir_est = np.linalg.norm(dir_est, axis = -1, keepdims = True)
         dir_est = dir_est/norms_dir_est
         dir_est = dir_est @ u #Inverse rotation
@@ -238,12 +205,13 @@ if(__name__ == '__main__'):
     
     #Num peaks
     if(fix_number_of_peaks):
-        num_peaks = 3
+        num_peaks = dir_est.shape[3]
     else:
         num_peaks = np.ones(dir_est_linear.shape[0], dtype = 'int16')
         norms_dir_est_linear = norms_dir_est.squeeze()[slc_mask,:]
         num_peaks = num_peaks + (norms_dir_est_linear[:,1]>0.5*norms_dir_est_linear[:,0])
     
+        
     #%% Prepare the parallelization by dividing the linear data into chunks 
     nsamples = cSH_x.shape[0]
     chunksize = nsamples//num_processes
