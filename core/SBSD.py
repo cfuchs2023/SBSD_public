@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+from scipy.special import eval_legendre
 from tqdm import tqdm
 import os
 from core import OMP as omp
@@ -7,6 +8,7 @@ from core import sh_utils as shu
 import warnings
 import quaternionic as qua
 import time
+import spherical as sph
 #%%
 def LoadRotDic(Ns, dr, nangles, cache_path):
     DNs = []
@@ -96,13 +98,22 @@ def run_SBSD(cSH_x,
                 rks[i][j,:] = rk[:]
     return Aks, Wks, Cks, estimated_us, estimated_s, rks, num_peaks
 
+
+
 #%%
-def ComputeCanonicalSignals(max_L, cSH_x, num_peaks, est_us, t_smooth = 1e-6, Ns = None, DNs = None, verbosity = 1, logpath = None):
+def ComputeCanonicalSignals(max_L, cSH_x, num_peaks, est_us, 
+                            t_smooth = 1e-6, Ns = None, DNs = None, 
+                            verbosity = 1, store_residuals = False,
+                            logpath = None):
     #TODO : When the estimation of direction was performed with SBSD, there is no need to recompute the filters since
     #they have been computed in the relevant DN already.
     nsamples = est_us.shape[0]
     max_num_peak = est_us.shape[1]
     weights = np.zeros((nsamples, max_num_peak, max_L//2 + 1), dtype ='complex')
+    if(store_residuals):
+        residuals = np.zeros(cSH_x.shape, dtype = 'complex')
+    else:
+        residuals = None
     all_Rus = np.zeros((nsamples,max_num_peak,4))
     start = time.time()
     if(not(logpath is None)):
@@ -134,14 +145,35 @@ def ComputeCanonicalSignals(max_L, cSH_x, num_peaks, est_us, t_smooth = 1e-6, Ns
             raise ValueError('Error')
         #Computing the associated U^n and weights
         for n_idx,n in enumerate(range(0,max_L+1,2)):
-            if(type(t_smooth )==float):
-                lamb = t_smooth
+            if(n>0):
+                fact = (n*(n+1))**2
+                if(type(t_smooth )==float):
+                    lamb = t_smooth*fact
+                else:
+                    lamb = t_smooth[n_idx]*fact
+                
+                slc_n = slice(n**2,(n+1)**2)
+                miniD = np.conjugate(shu.MakeSingleOrderRotFilter(n, Rus)).T
+                lambI = np.eye(miniD.shape[1], dtype = 'complex') * lamb
+                Wns = np.linalg.inv(np.conjugate(miniD).T @ miniD + lambI)@np.conjugate(miniD).T @ s[slc_n]
+                weights[j,0:num_peak,n_idx] = Wns[:]
+                if(store_residuals):
+                   residuals[j,slc_n] = miniD@weights[j,0:num_peak,n//2] - s[slc_n]
             else:
-                lamb = t_smooth[n_idx]
-            slc_n = slice(n**2,(n+1)**2)
-            miniD = np.conjugate(shu.MakeSingleOrderRotFilter(n, Rus)).T
-            lambI = np.eye(miniD.shape[1], dtype = 'complex') * lamb
-            Wns = np.linalg.inv(np.conjugate(miniD).T @ miniD + lambI)@np.conjugate(miniD).T @ s[slc_n]
-            weights[j,0:num_peak,n//2] = Wns[:]
+                weights[j,0:num_peak,n//2] = 0
+
+                
     
-    return weights, all_Rus
+    return weights, all_Rus, residuals #We return all computed quaternions for sanity checks purpose   
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

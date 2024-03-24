@@ -10,7 +10,7 @@ if(__name__ == '__main__'):
     from dipy.core.gradients import  unique_bvals_tolerance
     import json 
     import scipy
-    path_SBSD = "E:/github/SBSD_public/" #Put the path where you git cloned SBSD_public
+    path_SBSD = "E:/github/SBSD_public_review/" #Put the path where you git cloned SBSD_public
     if(not(path_SBSD in sys.path)):
         sys.path.insert(0,path_SBSD)   
     
@@ -25,35 +25,28 @@ if(__name__ == '__main__'):
     base_hcp_path = os.path.join(*['E:\\',
                   'dataHCP',
                   ]) #Put the path where you stored data from the hcp
-    cache_path = os.path.join(path_SBSD, "CachedRotationDictionary")
-    patient_id = "1019"
-    
-    
-    num_processes = 40
+    patient_id = "1007"
+    num_processes = 28
     dir_est_type = 'MSMTCSD'
-    fix_number_of_peaks = True
-    if(dir_est_type == 'SBSD'):
-        sbsd_run_id = "00"
-        idx_degree = 1
-        run_id = 'SBSD_00'
-    else:
-        run_id = 'MSMT_new_00'
-        
+    fix_number_of_peaks = False
+    run_id = 'MSMT_review_05'
+    store_residuals = True
     #%% Build paths
     base_patient_path = os.path.join(base_hcp_path, *['MGH_{0}_all'.format(patient_id),
     'mgh_{0}'.format(patient_id)])
     save_path = os.path.join(base_patient_path,*['diff','preproc','mri','SHEST_{0}'.format(run_id)])
+    if(not(os.path.exists(save_path))):
+        os.makedirs(save_path)
     diff_preproc_path = os.path.join(base_patient_path, *['diff','preproc','mri'],)
     nifti_path = os.path.join(diff_preproc_path, 'diff_preproc.nii.gz')
     #%% Parameters
     L = 8 #Degree for the computation of the expansion
-    c_smooth = 1e-4 #For Laplace Beltrami regularization in the computation of the projection matrix
-    t_smooth = np.array([1e-6, 1e-5, 1e-4, 1e-3, 5e-3])
-    t_smooth = t_smooth.tolist()
-    bval = 5000
+    c_smooth = 1e-3 #For Laplace Beltrami regularization in the computation of the projection matrix
+    t_smooth = 1e-4
+    bval = 3000
     save_result_as_nifti = True
     
-    # Slice on which the algortihm will be performed : None everyhwere -> perform on the complete volume (masked by a brain mask)
+    # Slice on which the algorithm will be performed : None everyhwere -> perform on the complete volume (masked by a brain mask)
     slc = [slice(None),slice(None),slice(None)]  # Create a list of slices for each dimension
     #slc = [slice(None),slice(None),slice(20,40)] #Reduced volume for testing
     
@@ -76,10 +69,16 @@ if(__name__ == '__main__'):
     
     #%% Load mask (dwi)
     #Load MNI mask
-    mask_path = os.path.join(base_hcp_path, *['brain_masks', 'MNI', f'MNI_mask_{patient_id}.nii.gz'])
-    mask_nifti = nib.load(mask_path)
-    mask = mask_nifti.get_fdata(dtype = np.float32).astype('bool')
-    
+    if(patient_id != '1007'):
+        mask_path = os.path.join(base_hcp_path, *['brain_masks', 'MNI', f'MNI_mask_{patient_id}.nii.gz'])
+        mask_nifti = nib.load(mask_path)
+        mask = mask_nifti.get_fdata(dtype = np.float32).astype('bool')
+    else:
+        mask_path = os.path.join(base_hcp_path, *['brain_masks', 'MNI', f'MNI_mask_{patient_id}_edit.nii.gz'])
+        mask_nifti = nib.load(mask_path)
+        mask = mask_nifti.get_fdata(dtype = np.float32).astype('bool')
+        
+        
 
     #%% Get the bvals and bvecs
     bvals_path =os.path.join(base_hcp_path, *[f'MGH_{patient_id}_all',f'mgh_{patient_id}',
@@ -98,16 +97,9 @@ if(__name__ == '__main__'):
     mask_shells = np.zeros((ubvals.shape[0], bvals.shape[0]), dtype = 'bool')
     for k,bvalue in enumerate(ubvals):
         mask_shells[k,:] = np.abs(bvals-bvalue)<70
-        
-    #%%
-    img_to_store = img.copy()
-    data_linear = img[mask,:]
-    norms = np.mean(data_linear[:,~mask_noB0], axis = -1, keepdims = True)
+         
     
-    #%%
-    data_linear[np.abs(norms[:,0])>1e-3,:] = data_linear[np.abs(norms[:,0])>1e-3,:]/norms[np.abs(norms[:,0])>1e-3]
-    #%%
-    img_to_store[mask,:] = data_linear
+
     #%% Computation of spherical coordinates, quaternions of the grid ;
     theta,phi,r = shu.Cart2Sph(xyz[:,0], xyz[:,1], xyz[:,2])
     grid = np.zeros((theta.shape[0],2))
@@ -120,24 +112,21 @@ if(__name__ == '__main__'):
     slc_img = img[tuple(slc+[slice(None)])]
     slc_mask = mask[tuple(slc)]
     data_linear = slc_img[slc_mask,:]
+    norms = np.mean(data_linear[:,~mask_noB0], axis = -1, keepdims = True)
+    data_linear[np.abs(norms[:,0])>1e-5,:] = data_linear[np.abs(norms[:,0])>1e-5,:]/norms[np.abs(norms[:,0])>1e-5]
     n_voxels = data_linear.shape[0]
     data_shape = slc_img.shape
-    
-    #%% Normalize data with values at b = 0 
-    norms = np.mean(data_linear[:,~mask_noB0],axis = 1, keepdims = True)
-    data_linear[norms[:,0]>1e-6,:] = data_linear[norms[:,0]>1e-6,:]/norms[norms[:,0]>1e-6,:]
-    
+        
     #%%
     idx = 800
     plt.figure()
     plt.plot(data_linear[idx,:])
     plt.show()
     
-    
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1,projection = '3d')
     ax.scatter(bvecs[mask_shells[-2,:],0], bvecs[mask_shells[-2,:],1], bvecs[mask_shells[-2,:],2],
-               c = data_linear[idx,:][mask_shells[-2,:]], cmap = 'magma')
+               c = data_linear[idx,:][mask_shells[-2,:]], cmap = 'turbo')
     plt.show()
     
     #%% computation of basis and projection matrix
@@ -151,9 +140,10 @@ if(__name__ == '__main__'):
     c_proj_mat = c_proj_mat.astype('complex64')
     #%%
     x = data_linear[:,mask_noB0][:,mask_bval]
-    
+    x0mean = x - np.mean(x,axis = -1, keepdims = True) #Remove the mean to avoid singularity at n = 0
+    del x
     #%% Compute SH expansion
-    cSH_x = (c_proj_mat @ x.T).T
+    cSH_x = (c_proj_mat @ x0mean.T).T
     
     
     #%% Load the direction estimations
@@ -185,21 +175,18 @@ if(__name__ == '__main__'):
         norms_dir_est = np.linalg.norm(dir_est, axis = -1, keepdims = True)
         dir_est = dir_est/norms_dir_est
         dir_est = dir_est @ u #Inverse rotation
+        # The peaks are ordered according to their norm
+        msmt_num_peaks = np.sum(norms_dir_est.squeeze()>0.1, axis = -1) #Building a map of number of peaks
         print('Loading MSMT CSD fod peaks...Done')
-    elif(dir_est_type == 'SBSD'):
-        print('Loading SBSD fod peaks...')
-        sbsd_peaks_path = os.path.join(base_patient_path, *['diff',
-                                                           'preproc',
-                                                           'mri',
-                                                           "SBSD_" + sbsd_run_id, 
-                                                           f'{sbsd_run_id}_SBSD_estimated_us.nii.gz'])
         
-        # Load nifti
-        sbsd_peaks_nifti = nib.load(sbsd_peaks_path)
-        dir_est = sbsd_peaks_nifti.get_fdata(dtype = np.float32)
-        dir_est = dir_est[...,idx_degree,:,:]
+        
+        header = full_img.header
+        header.dim = msmt_num_peaks.squeeze().shape
+        nifti = nib.Nifti1Image(msmt_num_peaks.squeeze(), full_img.affine, header=header, dtype = 'int8')
+        nib.save(nifti, os.path.join(save_path, '{0}_num_peaks.nii.gz').format(run_id))
+        
     else:
-        raise ValueError(f'Direction estimation type not recognized. Got {dir_est_type} but expected CSD, MSMTCSD or SBSD')
+        raise ValueError(f'Direction estimation type not recognized. Got {dir_est_type} but expected CSD or MSMTCSD')
     slc_dir_est = dir_est[tuple(slc+[slice(None), slice(None)])]                   
     dir_est_linear = slc_dir_est[slc_mask,:]
     
@@ -207,9 +194,8 @@ if(__name__ == '__main__'):
     if(fix_number_of_peaks):
         num_peaks = dir_est.shape[3]
     else:
-        num_peaks = np.ones(dir_est_linear.shape[0], dtype = 'int16')
-        norms_dir_est_linear = norms_dir_est.squeeze()[slc_mask,:]
-        num_peaks = num_peaks + (norms_dir_est_linear[:,1]>0.5*norms_dir_est_linear[:,0])
+        if(dir_est_type == 'MSMTCSD'):
+            num_peaks = msmt_num_peaks[tuple(slc)][slc_mask]
     
         
     #%% Prepare the parallelization by dividing the linear data into chunks 
@@ -226,6 +212,7 @@ if(__name__ == '__main__'):
         slc_chunks.append(slc_current_chunk)
         start = end
     
+    
     #%% Prepare the logfile 
     logpath = os.path.join(save_path, 'Logs')
     if(not(os.path.exists(logpath))):
@@ -235,18 +222,27 @@ if(__name__ == '__main__'):
     #Prepare the function which will be applied to the chunks
     fun = lambda x:sbsd.ComputeCanonicalSignals(L, 
                                                 x[0], 
-                                                num_peaks,
                                                 x[1],
+                                                x[2],
                                                 t_smooth, 
                                                 verbosity = 0,
-                                                logpath = x[2])
+                                                store_residuals = store_residuals,
+                                                logpath = x[3])
     
     for i,slc_chunk in enumerate(slc_chunks):
         log =  os.path.join(logpath,'logs_{0}.txt'.format(i))
-        fut = dask.delayed(fun)([cSH_x[slc_chunk,...], 
-                                 dir_est_linear[slc_chunk,0:np.max(num_peaks),:],
-                                 log])
+        if(fix_number_of_peaks):
+            fut = dask.delayed(fun)([cSH_x[slc_chunk,...], 
+                                     num_peaks,
+                                     dir_est_linear[slc_chunk,0:np.max(num_peaks),:],
+                                     log])
+        else:
+            fut = dask.delayed(fun)([cSH_x[slc_chunk,...], 
+                                     num_peaks[slc_chunk],
+                                     dir_est_linear[slc_chunk,0:np.max(num_peaks),:],
+                                     log])
         futures.append(fut)
+      
     #%% Prepare the progress bar
     pb = ProgressBar()
     pb.register()
@@ -263,12 +259,18 @@ if(__name__ == '__main__'):
     #%% Concatenate the results
     weights = np.concatenate([results[0][j][0] for j in range(num_processes)], axis = 0)
     Rus = np.concatenate([results[0][j][1] for j in range(num_processes)], axis = 0)
-  
+    if(store_residuals):
+        residuals = np.concatenate([results[0][j][2] for j in range(num_processes)], axis = 0)
     #%% Save the results as nifti if needed
     output_weights = np.zeros((*data_shape[0:3],weights.shape[1], weights.shape[-1]), dtype = 'complex')
     output_weights[slc_mask.astype(bool),:] = weights
-    if(not(os.path.exists(save_path))):
-        os.makedirs(save_path)
+    
+    output_residuals = np.zeros((*data_shape[0:3],residuals.shape[-1]), dtype = 'complex')
+    output_residuals[slc_mask.astype(bool),:] = residuals
+    
+    output_num_peaks = np.zeros(data_shape[0:3], dtype = 'int8')
+    output_num_peaks[slc_mask.astype(bool)] = num_peaks
+
     if(save_result_as_nifti):
         header = full_img.header
         header.dim = output_weights.shape
@@ -280,11 +282,28 @@ if(__name__ == '__main__'):
         
         nifti_weights = nib.Nifti1Image(np.abs(output_weights), full_img.affine, header=header)
         nib.save(nifti_weights, os.path.join(save_path, '{0}_SHEST_weights_modulus.nii.gz').format(run_id))
+        if(store_residuals):
+            header = full_img.header
+            header.dim = output_residuals.shape
+            
+            nifti= nib.Nifti1Image(output_residuals.imag, full_img.affine, header=header)
+            nib.save(nifti, os.path.join(save_path, '{0}_residuals_imag.nii.gz').format(run_id))
+            
+            nifti= nib.Nifti1Image(output_residuals.real, full_img.affine, header=header)
+            nib.save(nifti, os.path.join(save_path, '{0}_residuals_real.nii.gz').format(run_id))
+            
+            norm_residuals = np.sum(np.sqrt(output_residuals.real**2 + output_residuals.imag**2), axis = -1)
+            header = full_img.header
+            header.dim = norm_residuals.shape
+            nifti= nib.Nifti1Image(norm_residuals, full_img.affine, header=header)
+            nib.save(nifti, os.path.join(save_path, '{0}_norm_residuals.nii.gz').format(run_id))
+        if(not(fix_number_of_peaks)):
+            header = full_img.header
+            header.dim = output_num_peaks.squeeze().shape
+            nifti = nib.Nifti1Image(output_num_peaks.squeeze(), full_img.affine, header=header, dtype = 'int8')
+            nib.save(nifti, os.path.join(save_path, '{0}_num_peaks.nii.gz').format(run_id))
+
         
-        
-        # header.dim = num_peaks.shape
-        # nifti_num_peaks = nib.Nifti1Image(num_peaks, full_img.affine, header=header)
-        # nib.save(num_peaks, os.path.join(save_path, '{0}_SHEST_num_peaks.nii.gz').format(run_id))
 
         
     

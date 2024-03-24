@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 import sys
 
-path_SBSD = "E:/github/SBSD_public/" #Put the path where you git cloned SBSD_public
+path_SBSD = "E:/github/SBSD_public_review/" #Put the path where you git cloned SBSD_public
 if(not(path_SBSD in sys.path)):
     sys.path.insert(0,path_SBSD)   
     
@@ -19,17 +19,17 @@ from core import DataGenerator as DG
     # sch : acquisition scheme 
 
 #%% Parameters
-num_samples = 1000
+num_samples = 20000
 num_fasc = 2 #Number of crossing fascicles
 
 #%%
 base_sch_path = os.path.join(path_SBSD, "MC_simus")
 base_dic_path = base_sch_path
-out_path = os.path.join(path_SBSD, "data")
+out_path = os.path.join(path_SBSD, "BigData")
 if(not(os.path.exists(out_path))):
     os.makedirs(out_path)
 
-for schem_suffix in ['200']:
+for schem_suffix in ['300','200','150','140', '130', '120', '110', '100']:
     scheme_name = "01scheme_"+schem_suffix
     print('SCHEME NAME : ', scheme_name)
     scheme_path = os.path.join(base_sch_path, scheme_name+'.txt')
@@ -42,7 +42,7 @@ for schem_suffix in ['200']:
     dic = full_dic[scheme_name]
     
     #%%
-    SNRs = np.flip([100]).tolist()
+    SNRs = [100,50,40,30,20,10]
     for SNR in SNRs:
         if(SNR>0):
             task_name = scheme_name+'_SNR'+str(SNR)

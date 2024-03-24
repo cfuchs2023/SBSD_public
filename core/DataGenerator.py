@@ -17,10 +17,17 @@ class DataLoader():
                  num_fasc = 2,
                  num_samples = None,
                  sorting = True):
-        path = os.path.join(base_path, "GeneratedData", f"{task_name}")
-        filename = f"run-{run_id}_num_fasc-{num_fasc}"
-        with open(os.path.join(path, filename + ".pickle"), 'rb') as file:
-            self.data = pickle.load(file)
+        try:
+            path = os.path.join(base_path, "GeneratedData", f"{task_name}")
+            filename = f"run-{run_id}_num_fasc-{num_fasc}"
+            with open(os.path.join(path, filename + ".pickle"), 'rb') as file:
+                self.data = pickle.load(file)
+        except FileNotFoundError:
+            print(f'File not found for specified path {path}. Triyng without GeneratedData.')
+            path = os.path.join(base_path, f"{task_name}")
+            filename = f"run-{run_id}_num_fasc-{num_fasc}"
+            with open(os.path.join(path, filename + ".pickle"), 'rb') as file:
+                self.data = pickle.load(file)
         
         file_num_samples = self.data['DWI'].shape[0]
         if(num_samples is None):
