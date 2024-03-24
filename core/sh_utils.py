@@ -97,19 +97,20 @@ def get_Tournier_basis(L, theta_shell, phi_shell):
     Rs = qua.array.from_spherical_coordinates(theta_shell, phi_shell)
     Ymn = wig.sYlm(0, Rs) 
     size_tournier_basis = np.sum([(2*l+1) for l in range(L+1) if(l%2==0)])
-    tournier_Ymn = np.zeros((size_tournier_basis, Rs.shape[0]), dtype = 'complex')
+    tournier_Ymn = np.zeros((Rs.shape[0],size_tournier_basis, ), dtype = 'complex')
     
     idx = 0
     for l in range(L+1):
         for m in range(-l,l+1):
             if(l%2 == 0):
-                idx+=1
+                
                 if(m<0):
-                    tournier_Ymn[idx, :] = np.sqrt(2)* Ymn[wig.Yindex(l,-m),:].imag
+                    tournier_Ymn[:,idx] = np.sqrt(2)* Ymn[:,wig.Yindex(l,-m)].imag
                 elif(m>0):
-                    tournier_Ymn[idx, :] = np.sqrt(2)* Ymn[wig.Yindex(l,m),:].real
+                    tournier_Ymn[:,idx] = np.sqrt(2)* Ymn[:,wig.Yindex(l,m)].real
                 else:
-                    tournier_Ymn[idx, :] = Ymn[wig.Yindex(l,m),:]
+                    tournier_Ymn[:,idx] = Ymn[:,wig.Yindex(l,m)]
+                idx+=1
     #Sanity check
     if(np.any(tournier_Ymn.imag>1e-12)):
         raise RuntimeError('Non zero imaginary values found in tournier_Ymn. Something went wrong, sorry.')
@@ -307,4 +308,60 @@ def CorrSHWithD(SH_x, D, N):
     slc_N = slice(N**2, (N+1)**2)
     qs = np.abs(np.conjugate(D) @ SH_x[slc_N])/np.linalg.norm(SH_x[slc_N])
     return qs
+
+#%%
+def build_mask(dic):
+    bvals = dic['bvals']*1e-6
+    ubvals = np.unique(bvals)
+    num_dir = (bvals.shape[0]-1)//(ubvals.shape[0]-1)
+    bvecs = dic['sch_mat'][:,0:3]
+    mask_nob0 = bvals>0
+    x = bvecs[mask_nob0,2]
+    mask_bvals = np.zeros((ubvals.shape[0]-1,np.sum(mask_nob0)), dtype = 'bool')
+    all_idx_sort = np.zeros((ubvals.shape[0]-1,num_dir), dtype = 'int64')
+    for j,bval in enumerate(ubvals[1:]):
+        mask_bvals[j,:] = np.abs(bvals[mask_nob0]-bval)<30
+        all_idx_sort[j,:] = np.argsort(x[mask_bvals[j,:]])
+    return mask_bvals,ubvals,mask_nob0,all_idx_sort
+
+def build_Rs(dic):
+    bvecs = dic['sch_mat'][:,0:3]
+    mask_nob0 = dic['bvals']>0
+    xyz = bvecs[mask_nob0,:]
+    theta,phi,r = Cart2Sph(xyz[:,0], xyz[:,1], xyz[:,2])
+    grid = np.zeros((theta.shape[0],2))
+    grid[:,0] = theta[:]
+    grid[:,1] = phi[:]
+    Rs_grid = qua.array.from_spherical_coordinates(theta, phi)
+    return Rs_grid,theta,phi,r,xyz
+
+
+#%%
+def pp_impulses(s_sig, z, ws = 12, start_z = 0.9):
+    #Performs moving average on the ends of the signal to remove some ringings
     
+    # z \in [0.9 , 1]
+    mask = z>start_z
+    sig_ma = np.zeros(s_sig.shape)
+    sig_ma[:,:,~mask] = s_sig[:,:,~mask]
+    
+    nsamples, nfasc, ndirs = s_sig.shape
+    trail_means = np.mean(s_sig[:,:,mask], axis = -1, keepdims = True)
+    padding = trail_means * np.ones((nsamples, nfasc, ws), dtype = 'float32')
+    padded_sig = np.zeros((nsamples, nfasc, ndirs+ws), dtype = 'float32')
+    padded_sig[:,:,0:ndirs] = s_sig[...]
+    padded_sig[:,:,ndirs:] = padding[...]
+    padded_mask = np.concatenate([mask, np.ones(ws, dtype = 'bool')])
+    
+    cs_sig = np.cumsum(padded_sig, axis = -1)
+
+    temp = np.zeros((nsamples,nfasc, np.sum(mask)), dtype = 'float32')
+    temp = (cs_sig[:,:,padded_mask][:,:,ws:] - cs_sig[:,:,padded_mask][:,:,:-ws])/(2*ws)
+    sig_ma[:,:,mask] = (temp[:] - temp[:,:,0:1]) + s_sig[:,:,mask][:,:,0:1]
+    
+    # Since the signal is axisymmetric around uz we just copy the flipped last part to the beginning 
+    mask_beginning = np.flip(mask)#z<-start_z
+    sig_ma[:,:,mask_beginning] = np.flip(sig_ma[:,:,mask], axis = -1)
+
+    
+    return sig_ma
